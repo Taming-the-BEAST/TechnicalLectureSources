@@ -1,0 +1,507 @@
+---
+title: Understanding BEAST 2 XML
+reveal:
+    center: false
+    history: true
+    slideNumber: true
+    theme: theme.css
+---
+
+<section class="titlepage"
+         data-background="https://media-cdn.holidaycheck.com/w_1024,h_768,c_fit,q_80/ugc/images/f6b06b94-ea73-3763-9930-3a01df898e2f">
+  <div class="title">{{page.title}}</div>
+  <div class="author">Tim Vaughan</div>
+  <div class="institution">cEvo (Stadler Group), D-BSSE, ETH Zurich</div>
+  <div class="meeting">Taming the BEAST 2018</div>
+</section>
+
+
+<section class="titlepage"
+         data-background="https://media-cdn.holidaycheck.com/w_1024,h_768,c_fit,q_80/ugc/images/f6b06b94-ea73-3763-9930-3a01df898e2f">
+</section>
+
+<section>
+  <h1>What is BEAST 2 XML?</h1>
+
+  <ul class="spaced">
+    <li>Precise description of the:
+      <ol>
+        <li>Data (alignment, sampling times, ...)</li>
+        <li>Model (substitution model, tree prior, ...)</li>
+        <li>Parameter priors</li>
+      </ol>
+      which form the basis of a BEAST analysis.
+    </li>
+    <li>Usually produced by BEAUti.</li>
+    <li>Read by BEAST to when the analysis is run. (Nothing else matters!)</li>
+    <li>Important component of the BEAST 2 strategy for making results reproducible.</li>
+  </ul>
+</section>
+
+<section>
+  <h1>Why should I learn about BEAST 2 XML?</h1>
+
+  <ul class="spaced">
+    <li>Every BEAST 2 analysis that can be executed can be described using BEAST 2 XML.
+      <ul>
+        <li>Many (despite the best efforts of model developers) of these analyses cannot be set up using BEAUti.</li>
+        <li>Being able to even slightly modify the XML that BEAUti produces dramatically increases the number of analyses one can do.
+      </ul>
+
+    <li>Several analysis types are most easily achieved by modifying the XML:
+      <ul>
+        <li>User-defined starting trees (can now be achieved via BEAUti)</li>
+        <li>Fixing parameters or the trees in the analysis.</li>
+        <li>Linking certain models (beyond usual subsitution, clock, or tree priors)</li>
+      </ul>
+    </li>
+
+  </ul>
+</section>
+
+<section>
+  <h1>BEAST 2 XML: A first look</h1>
+
+  <pre class="stretch" style="width:100%"><code class="XML">
+    &lt;beast version='2.0' namespace='...'&gt;
+      &lt;run spec="MCMC" id="mcmc" chainLength="1000000000"&gt;
+        &lt;state&gt;
+          &lt;stateNode spec='RealParameter' id="hky.kappa"&gt;1.0&lt;/stateNode&gt;
+          &lt;stateNode spec='RealParameter' id="popSize"&gt;1.0&lt;/stateNode&gt;
+          &lt;stateNode spec='ClusterTree' id='tree' clusterType='upgma'&gt;
+            &lt;taxa idref='alignment'/&gt;
+          &lt;/stateNode&gt;
+        &lt;/state&gt;
+
+        &lt;distribution spec="CompoundDistribution" id="posterior"&gt;
+          &lt;distribution id="coalescent" spec="Coalescent"&gt;
+            &lt;treeIntervals spec='TreeIntervals' id='TreeIntervals'&gt;
+              &lt;tree idref="tree"/&gt;
+            &lt;/treeIntervals&gt;
+            &lt;populationModel spec="ConstantPopulation" id='ConstantPopulation'&gt;
+              &lt;popSize idref="popSize"/&gt;
+            &lt;/populationModel&gt;
+          &lt;/distribution&gt;
+
+          &lt;distribution spec='TreeLikelihood' id="treeLikelihood"&gt;
+            &lt;data id="alignment" dataType="nucleotide"&gt;
+              &lt;sequence taxon="human"  value="AGAAAT..."/&gt;
+              &lt;sequence taxon="chimp"  value="AGAAAT..."/&gt;
+              &lt;sequence taxon="bonobo" value="AGAAAT..."/&gt;
+            &lt;/data&gt;
+
+            &lt;tree idref="tree"/&gt;
+            &lt;siteModel spec='SiteModel' id="siteModel"&gt;
+              &lt;input name='substModel' idref='hky'/&gt;
+              &lt;substModel spec='HKY' id="hky"&gt;
+                &lt;kappa idref='hky.kappa'/&gt;
+                &lt;frequencies id='freqs' spec='Frequencies'&gt;
+                  &lt;data idref='alignment'/&gt;
+              &lt;/substModel&gt;
+            &lt;/siteModel&gt;
+          &lt;/distribution&gt;
+        &lt;/distribution&gt;
+
+        &lt;operator id='kappaScaler' spec='ScaleOperator' scaleFactor="0.5" weight="1"&gt;
+          &lt;parameter idref="hky.kappa"/&gt;
+        &lt;/operator&gt;
+        &lt;operator id='popSizeScaler' spec='ScaleOperator' scaleFactor="0.5" weight="1"&gt;
+          &lt;parameter idref="popSize"/&gt;
+        &lt;/operator&gt;
+        &lt;operator spec='SubtreeSlide' weight="5" gaussian="true" size="1.0"&gt;
+          &lt;tree idref="tree"/&gt;
+        &lt;/operator&gt;
+
+        &lt;logger logEvery="10000" fileName="$(filebase).log"&gt;
+          &lt;log idref="hky.kappa"/&gt;
+        &lt;/logger&gt;
+        &lt;logger logEvery="20000" fileName="$(filebase).trees"&gt;
+          &lt;log idref="tree"/&gt;
+        &lt;/logger&gt;
+        &lt;logger logEvery="10000"&gt;
+          ...
+        &lt;/logger&gt;
+      &lt;/run&gt;
+
+    &lt;/beast&gt;
+  </code></pre>
+
+</section>
+
+<section class="titlepage"
+         data-background="https://media-cdn.holidaycheck.com/w_1024,h_768,c_fit,q_80/ugc/images/f6b06b94-ea73-3763-9930-3a01df898e2f">
+</section>
+
+<section>
+  <h1>What is XML?</h1>
+
+  <ul class="spaced">
+    <li>XML is a standard way of representing hierarchically structured data.</li>
+    <li>XML files are plain text files containing XML-formatted data.</li>
+  </ul>
+
+  <br>
+  <br>
+
+  <p>XML file components:</p>
+  <pre style="font-size:0.8em"><code class="xml">
+      &lt;tag attributeOne="Attribute value"
+           attributeTwo="Another attribute value"&gt;
+        &lt;childTag childAttribute="10"&gt; &lt;/childTag&gt;
+        &lt;childTag childAttribute="20"/&gt;
+        &lt;!-- This is a "comment" --&gt;
+      &lt;/tag&gt;
+  </code></pre>
+
+  There is <b>a lot</b> that one can say about XML, but this is all we need!
+</section>
+
+<section>
+  <h1>Editing XML</h1>
+
+  <ul>
+    <li>XML files are plain text (i.e. a string of printable characters).</li>
+    <li><b>Word processing tools such as MS Word are not suitable</b> for these files.</li>
+    <li>You <i>can</i> edit them using Notepad (Windows) or TextEdit (MacOS), but only use these in an emergency.</li>
+    <li>Ideally one should use a programmers' text editor that supports syntax highlighting and checking:</li>
+
+    <div>
+      <div style="display:inline-block;width:24%;text-align:center">
+        <img data-src="atom.png" style="height:100px"><br>
+        Atom<br>
+        <a style="font-size:0.8em" href="https://atom.io">atom.io</a>
+      </div>
+      <div style="display:inline-block;width:24%;text-align:center">
+        <img data-src="sublime.png" style="height:100px"><br>
+        Sublime Text<br>
+        <a style="font-size:0.8em" href="https://sublimetext.com">sublimetext.com</a>
+      </div>
+      <div style="display:inline-block;width:24%;text-align:center">
+        <img data-src="emacs.png" style="height:100px"><br>
+        GNU Emacs<br>
+        <a style="font-size:0.8em" href="http://gnu.org/software/emacs">gnu.org/s/emacs</a>
+      </div>
+      <div style="display:inline-block;width:24%;text-align:center">
+        <img data-src="vim.png" style="height:100px"><br>
+        Vim<br>
+        <a style="font-size:0.8em" href="https://vim.org">vim.org</a>
+      </div>
+    </div>
+  </ul>
+</section>
+
+<section>
+  <h1>A simple BEAST 2 model</h1>
+
+  <img data-src="beauti_model1.png" style="width:80%">
+  <img data-src="beauti_model2.png" style="width:80%;margin-top:0">
+  <img data-src="beauti_model3.png" style="width:80%;margin-top:0">
+</section>
+
+<section>
+  <h1>The BEAST 2 Object Model</h1>
+
+  <img data-src="beast_model.png" style="width:100%">
+</section>
+
+<section>
+  <h1>A BEAST 2 Object</h1>
+
+  <img data-src="BEASTObject.svg" style="width:100%;margin-top:5%">
+
+  <ul style="margin-top:5%">
+    <li>Object class (type) and input names usually written as "CamelCase".</li>
+    <li>Input names usually have lower case first letter.</li>
+    <li>Object class names almost always have upper case first letter.</li>
+  </ul>
+</section>
+
+<section>
+  <h1>Class (type) Hierarchy</h1>
+
+  <img data-src="ClassHierarchy.svg" style="height:500px">
+</section>
+
+<section>
+  <h1>XML Object representation</h1>
+
+  <img data-src="BEASTObject.svg" style="width:100%;margin-top:5%">
+
+  <pre style="font-size:0.7em"><code class="XML">
+      &lt;parentInput spec="BEASTObject"&gt;
+        &lt;input1 ...&gt; &lt;/input1&gt;
+        &lt;input2 ...&gt; &lt;/input2&gt;
+        ...
+      &lt;/parentInput&gt;
+  </code></pre>
+</section>
+
+<section>
+  <h1>Inputs with simple types</h1>
+
+  <ul style="margin-top:1em">
+    <li>Some BEASTObjects take inputs with primitive types such as strings (i.e. some text), boolean values (true/false) or numbers.</li>
+    <li>These values are specified using attributes.</li>
+  </ul>
+
+  <pre style="font-size:0.8em;margin-top:5%"><code class="XML">
+      &lt;mcmc spec="MCMC"
+            chainLength="10000000"
+            storeEvery="10000"
+            sampleFromPrior="true"&gt;
+        ...
+      &lt;/mcmc&gt;
+  </code></pre>
+  </ul>
+  
+</section>
+
+<section>
+  <h1>Connecting BEAST Objects</h1>
+
+  <img data-src="NormalDistrib.svg">
+
+  <pre><code class="XML">
+      &lt;parentInput spec="Normal"&gt;
+        &lt;mean spec="RealParameter" value="1.0" lower="0.0" upper="5.0"/&gt;
+        &lt;sigma spec="RealParameter" value="0.5" lower="0.0" upper="5.0"/&gt;
+      &lt;/parentInput&gt;
+  </code></pre>
+</section>
+
+<section>
+  <h1>Object IDs</h1>
+
+  <img data-src="NormalDistribWithID.svg">
+
+</section>
+
+<section>
+  <h1>Referencing IDs using tags</h1>
+
+  <img data-src="RealParamWithID.svg">
+
+  <pre><code class="XML">
+      &lt;state&gt;
+        &lt;stateNode spec="RealParameter" value="1.0" id="clockRate"/&gt;
+      &lt;/state&gt;
+
+      ...
+      &lt;logger logEvery="1000" fileName="logfile.log"&gt;
+        &lt;log idref="clockRate"/&gt;
+      &lt;/logger&gt;
+  </code></pre>
+
+</section>
+
+<section>
+  <h1>... using attributes</h1>
+
+  <img data-src="RealParamWithID.svg">
+
+  <pre><code class="XML">
+      &lt;state&gt;
+        &lt;stateNode spec="RealParameter" value="1.0" id="clockRate"/&gt;
+      &lt;/state&gt;
+
+      ...
+      &lt;operator spec="ScaleOperator" parameter="@clockRate" weight="1"/&gt;
+  </code></pre>
+</section>
+
+<section>
+  <h1>Loose Ends</h1>
+
+  <ul class="spaced">
+    <li>Alternative but equivalent forms of BEASTObject representation:
+      <pre><code class="xml">
+          &lt;parentInput spec="RealParameter" value="1.0"/&gt;
+      </code></pre>
+      <pre><code class="xml">
+          &lt;parameter name="parentInput" value="1.0"/&gt;
+      </code></pre></li>
+
+    <li>BEASTObject class names are in general prefixed by their location in a hierarchy of java packages, e.g. <b>beast.core.parameter.RealParameter</b>.
+      <ul>
+        <li>The <i>namespace</i> attribute to the &lt;beast&gt; tag specifices a list of these locations, and the classes at these locations don't need the prefix.</li>
+        </ul>
+      </li>
+  </ul>
+</section>
+
+<section>
+  <h1>The BEAST XML again</h1>
+
+  <pre class="stretch" style="width:100%"><code class="XML">
+    &lt;beast version='2.0' namespace='...'&gt;
+      &lt;run spec="MCMC" id="mcmc" chainLength="1000000000"&gt;
+        &lt;state&gt;
+          &lt;stateNode spec='RealParameter' id="hky.kappa"&gt;1.0&lt;/stateNode&gt;
+          &lt;stateNode spec='RealParameter' id="popSize"&gt;1.0&lt;/stateNode&gt;
+          &lt;stateNode spec='ClusterTree' id='tree' clusterType='upgma'&gt;
+            &lt;taxa idref='alignment'/&gt;
+          &lt;/stateNode&gt;
+        &lt;/state&gt;
+
+        &lt;distribution spec="CompoundDistribution" id="posterior"&gt;
+          &lt;distribution id="coalescent" spec="Coalescent"&gt;
+            &lt;treeIntervals spec='TreeIntervals' id='TreeIntervals'&gt;
+              &lt;tree idref="tree"/&gt;
+            &lt;/treeIntervals&gt;
+            &lt;populationModel spec="ConstantPopulation" id='ConstantPopulation'&gt;
+              &lt;popSize idref="popSize"/&gt;
+            &lt;/populationModel&gt;
+          &lt;/distribution&gt;
+
+          &lt;distribution spec='TreeLikelihood' id="treeLikelihood"&gt;
+            &lt;data id="alignment" dataType="nucleotide"&gt;
+              &lt;sequence taxon="human"  value="AGAAAT..."/&gt;
+              &lt;sequence taxon="chimp"  value="AGAAAT..."/&gt;
+              &lt;sequence taxon="bonobo" value="AGAAAT..."/&gt;
+            &lt;/data&gt;
+
+            &lt;tree idref="tree"/&gt;
+            &lt;siteModel spec='SiteModel' id="siteModel"&gt;
+              &lt;input name='substModel' idref='hky'/&gt;
+              &lt;substModel spec='HKY' id="hky"&gt;
+                &lt;kappa idref='hky.kappa'/&gt;
+                &lt;frequencies id='freqs' spec='Frequencies'&gt;
+                  &lt;data idref='alignment'/&gt;
+              &lt;/substModel&gt;
+            &lt;/siteModel&gt;
+          &lt;/distribution&gt;
+        &lt;/distribution&gt;
+
+        &lt;operator id='kappaScaler' spec='ScaleOperator' scaleFactor="0.5" weight="1"&gt;
+          &lt;parameter idref="hky.kappa"/&gt;
+        &lt;/operator&gt;
+        &lt;operator id='popSizeScaler' spec='ScaleOperator' scaleFactor="0.5" weight="1"&gt;
+          &lt;parameter idref="popSize"/&gt;
+        &lt;/operator&gt;
+        &lt;operator spec='SubtreeSlide' weight="5" gaussian="true" size="1.0"&gt;
+          &lt;tree idref="tree"/&gt;
+        &lt;/operator&gt;
+
+        &lt;logger logEvery="10000" fileName="$(filebase).log"&gt;
+          &lt;log idref="hky.kappa"/&gt;
+        &lt;/logger&gt;
+        &lt;logger logEvery="20000" fileName="$(filebase).trees"&gt;
+          &lt;log idref="tree"/&gt;
+        &lt;/logger&gt;
+        &lt;logger logEvery="10000"&gt;
+          ...
+        &lt;/logger&gt;
+      &lt;/run&gt;
+
+    &lt;/beast&gt;
+  </code></pre>
+</section>
+
+<section data-background="https://media-cdn.holidaycheck.com/w_1024,h_768,c_fit,q_80/ugc/images/f6b06b94-ea73-3763-9930-3a01df898e2f">
+</section>
+
+<section class="center"
+         data-background="https://media-cdn.holidaycheck.com/w_1024,h_768,c_fit,q_80/ugc/images/f6b06b94-ea73-3763-9930-3a01df898e2f">
+  <h1>Questions?</h1>
+
+</section>
+
+
+<section class="titlepage" data-background="https://media-cdn.holidaycheck.com/w_1024,h_768,c_fit,q_80/ugc/images/f6b06b94-ea73-3763-9930-3a01df898e2f">
+
+  <div class="title">XML Hacking Tutorial</div>
+</section>
+  
+
+<section>
+  <h1>Structure of Tutorial</h1>
+
+  <p style="margin-top:10%">This tutorial covers a short series of
+  small XML-hacking exercises:</p>
+
+  <ol>
+    <li>Modifying MCMC parameters.</li>
+    <li>Setting an initial tree.</li>
+    <li>Fixing the tree in an analysis.</li>
+    <li>Linking a model in an analysis.</li>
+  </ol>
+
+  <p style="margin-top:5%">You will be given approximately <b>15 minutes</b> for
+  each exercise, after which I will present the solution.</p>
+</section>
+
+<section>
+  <h1>Exercise 1:<br>Modifying MCMC parameters</h1>
+  <p>Modification of basic parameters of the MCMC and loggers are easy to do directly in the XML.</p>
+  <ol>
+    <li>Download the primate-mtDNA.nex alignment from <a href="https://tgvaughan.github.io/TTB_Lectures/XML/downloads/primate-mtDNA.nex">tgvaughan.github.io/TTB_Lectures/XML/downloads/primate-mtDNA.nex</a></li>
+    <li>Load into BEAUti, link tree models and save.</li>
+
+    <li>Open the resulting XML in your text editor of choice.</li>
+    <li>Modify the chain length to be $10^6$ iterations.</li>
+    <li>Make the algorithm store the state every $10^4$ iterations.</li>
+    <li>Change the sampling frequency of the trace and tree logs to one sample per $10^4$ iterations.</li>
+  </ol>
+
+</section>
+
+<section class="center">
+  <h1>Exercise 1 Solution</h1>
+
+</section>
+
+<section>
+  <h1>Exercise 2:<br>Setting an initial tree</h1>
+
+  <p>By default BEAST initializes the tree randomly in a way that is consistent with any topological constraints, but occasionally we need to provide a better starting tree by hand.</p>
+  <ol>
+    <li>Download the primate tree file (Newick format) from
+<a href="https://tgvaughan.github.io/TTB_Lectures/XML/downloads/primate_tree.newick">tgvaughan.github.io/TTB_Lectures/XML/downloads/primate_tree.newick</a></li>
+    <li>Open the XML from the previous exercise.</li>
+    <li>Remove the <b>&lt;init&gt;...&lt;/init&gt;</b> element.</li>
+    <li>Find and modify the <b>&lt;tree&gt;</b> element within the <b>&lt;state&gt;</b> according to the instructions at <a href="https://beast2.org/fix-starting-tree">beast2.org/fix-starting-tree</a> to set the starting tree to the tree found in the tree file.</li>
+    <li>Run the analysis and verify (using <a href="https://icytree.org">icytree.org</a> or FigTree) that the initial tree matches the one we chose.</li>
+  </ol>
+</section>
+
+<section class="center">
+  <h1>Exercise 2 Solution</h1>
+</section>
+
+<section>
+  <h1>Exercise 3:<br>Fixing the tree in an analysis</h1>
+
+  <p>Occasionally we (think!) we know the tree topology perfectly.  We can easily prevent the analysis from sampling distinct tree topologies:</p>
+
+  <ol>
+    <li>Open the XML from the previous exercise.</li>
+    <li>Locate the section of the file defining operators.</li>
+    <li>Remove/"comment out" the SubtreeSlide, Exchange and WilsonBalding operators.</li>
+    <li>Run the analysis and verify (using <a href="https://icytree.org">icytree.org</a> or FigTree) that the topology is now fixed during the analysis.</li>
+  </ol>
+
+  <p>(Results of previous exercise at <a href="http://tgvaughan.github.io/TTB_Lectures/XML/downloads/primates_ex2.xml">
+http://tgvaughan.github.io/TTB_Lectures/XML/downloads/primates_ex2.xml
+    </a>)</p>
+    
+</section>
+
+<section class="center">
+  <h1>Exercise 3 Solution</h1>
+</section>
+
+<section>
+  <h1>Exercise 4:<br>Linking models</h1>
+
+  <p>Allowing different subsets of the data to share a model is useful/necessary.  Here we experiment with linking clock models, but the approach translates to other models (e.g. migration).</p>
+  <ol>
+    <li>Open the XML from the previous exercise.</li>
+    <li>Remove <b>clockRate.c:2ndpos</b> and <b>clockRate.c:3rdpos</b> parameters from <b>&lt;state&gt;</b>, priors on these parameters, operators and loggers for these parameters.</li>
+    <li>Replace the <b>&lt;branchRateModel&gt;</b> from <b>treeLikelihood.2ndpos/3rdpos</b> with idrefs pointing to the <b>&lt;branchRateModel&gt;</b> in <b>treeLikelihood.1stpos</b>.</li>
+    <li>Run the analysis and view the output in tracer to ensure that there is now a single clock rate for the coding sites.</li>
+  </ol>
+</section>
+
+<section class="center">
+  <h1>Exercise 4 Solution</h1>
+</section>
